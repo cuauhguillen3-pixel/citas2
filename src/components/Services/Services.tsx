@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Service {
   id: string;
@@ -9,6 +10,7 @@ interface Service {
   duration_minutes: number;
   price: number;
   active: boolean;
+  created_by?: string;
 }
 
 export default function Services() {
@@ -16,6 +18,7 @@ export default function Services() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -56,7 +59,10 @@ export default function Services() {
 
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('services').insert(formData);
+        const { error } = await supabase.from('services').insert({
+          ...formData,
+          created_by: user!.id
+        });
         if (error) throw error;
       }
 

@@ -55,6 +55,11 @@ export default function Billing() {
         console.error('Error al procesar confirmación de pago:', error);
         alert('Hubo un error al registrar tu pago: ' + (error.message || error));
       } finally {
+        // Always clear the URL to prevent infinite loops if something goes wrong
+        if (window.location.search.includes('session_id')) {
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+        }
         setLoading(false);
       }
     }
@@ -158,7 +163,8 @@ export default function Billing() {
 
       if (profileError) throw profileError;
 
-      window.location.reload();
+      // Reload removed to prevent loops
+      loadHistory();
       // ------------------------------------
       */
     } catch (error) {
