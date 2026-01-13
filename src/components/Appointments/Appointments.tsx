@@ -1,8 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Plus, Calendar as CalendarIcon, Clock, User, CheckCircle, XCircle, MessageCircle, Bell, BellRing } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, Clock, User, CheckCircle, XCircle, MessageCircle, Bell, BellRing, List, Grid, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, dateFnsLocalizer, View } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { es } from 'date-fns/locale';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
+
+const locales = {
+  'es': es,
+}
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+})
 
 interface Appointment {
   id: string;
@@ -24,6 +40,15 @@ export default function Appointments({ highlightId }: AppointmentsProps) {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [viewType, setViewType] = useState<'list' | 'calendar'>('list');
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  
+  // States for search, filter, and pagination
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const { user } = useAuth();
   const { sendNotification, permission } = useNotifications();
 
@@ -34,6 +59,57 @@ export default function Appointments({ highlightId }: AppointmentsProps) {
     appointment_time: '',
     notes: '',
   });
+
+  const calendarEvents = appointments.map(apt => {
+    const start = new Date(apt.appointment_date);
+    const end = new Date(start.getTime() + apt.services.duration_minutes * 60000);
+    return {
+      id: apt.id,
+      title: `${apt.clients.full_name} - ${apt.services.name}`,
+      start,
+      end,
+      resource: apt,
+    };
+  });
+
+  const eventStyleGetter = (event: any) => {
+    const now = new Date();
+    const isPast = event.end < now;
+    
+    let backgroundColor = isPast ? '#EF4444' : '#10B981';
+    
+    if (event.resource.status === 'cancelled') {
+      backgroundColor = '#9CA3AF';
+    } else if (event.resource.status === 'completed') {
+      backgroundColor = '#059669';
+    }
+
+    return {
+      style: {
+        backgroundColor,
+        borderRadius: '4px',
+        opacity: 0.8,
+        color: 'white',
+        border: '0px',
+        display: 'block'
+      }
+    };
+  };
+
+  const messages = {
+    allDay: 'Todo el día',
+    previous: 'Anterior',
+    next: 'Siguiente',
+    today: 'Hoy',
+    month: 'Mes',
+    week: 'Semana',
+    day: 'Día',
+    agenda: 'Agenda',
+    date: 'Fecha',
+    time: 'Hora',
+    event: 'Evento',
+    noEventsInRange: 'No hay eventos en este rango',
+  };
 
   useEffect(() => {
     loadData();
@@ -210,6 +286,23 @@ Confirmación de cita:
 
   const scheduledTodayCount = todayAppointments.filter(apt => apt.status === 'scheduled').length;
 
+  // Logic for filtering and pagination
+  const filteredAppointments = appointments.filter(apt => {
+    const matchesSearch = 
+      apt.clients.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      apt.services.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || apt.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
+  const paginatedAppointments = filteredAppointments.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   return (
     <div className="p-8">
       <div className="mb-6 flex justify-between items-start">
@@ -228,72 +321,163 @@ Confirmación de cita:
         )}
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex bg-gray-100 p-1 rounded-lg">
+          <button
+            onClick={() => setViewType('list')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-2 ${
+              viewType === 'list' ? 'bg-white text-rose-600 shadow' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <List className="w-4 h-4" />
+            Lista
+          </button>
+          <button
+            onClick={() => setViewType('calendar')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-2 ${
+              viewType === 'calendar' ? 'bg-white text-rose-600 shadow' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <CalendarIcon className="w-4 h-4" />
+            Calendario
+          </button>
+        </div>
         <button
           onClick={() => setShowModal(true)}
-          className="bg-gradient-to-r from-rose-500 to-pink-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-rose-600 hover:to-pink-700 transition flex items-center gap-2 shadow-lg"
+          className="bg-gradient-to-r from-rose-500 to-pink-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-rose-600 hover:to-pink-700 transition flex items-center gap-2 shadow-lg w-full md:w-auto justify-center"
         >
           <Plus className="w-5 h-5" />
           Nueva Cita
         </button>
       </div>
 
+      {viewType === 'list' && (
+        <div className="bg-white p-4 rounded-xl shadow-md mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Buscar por cliente o servicio..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // Reset page on search
+              }}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none transition"
+            />
+          </div>
+          
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <Filter className="text-gray-500 w-5 h-5" />
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1); // Reset page on filter
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none transition w-full md:w-auto"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="scheduled">Programada</option>
+              <option value="completed">Completada</option>
+              <option value="cancelled">Cancelada</option>
+              <option value="no_show">No Asistió</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500 mx-auto"></div>
         </div>
+      ) : viewType === 'calendar' ? (
+        <div className="bg-white p-6 rounded-xl shadow-lg h-[600px]">
+          <Calendar
+            localizer={localizer}
+            events={calendarEvents}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: '100%' }}
+            messages={messages}
+            eventPropGetter={eventStyleGetter}
+            onSelectEvent={(event) => setSelectedAppointment(event.resource)}
+            views={['month', 'week', 'day', 'agenda']}
+            defaultView="month"
+          />
+        </div>
       ) : (
         <div className="space-y-8">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Hoy</h2>
-              {todayAppointments.length > 0 && (
-                <div className="flex items-center gap-2 text-rose-600">
-                  <Bell className="w-5 h-5" />
-                  <span className="font-semibold">{todayAppointments.length} citas</span>
+          {filteredAppointments.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl shadow-md">
+              <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">No se encontraron citas</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paginatedAppointments.map((appointment) => (
+                  <AppointmentCard
+                    key={appointment.id}
+                    appointment={appointment}
+                    onStatusChange={updateStatus}
+                    onSendWhatsApp={sendWhatsApp}
+                    getStatusColor={getStatusColor}
+                    getStatusLabel={getStatusLabel}
+                    isToday={new Date(appointment.appointment_date).toDateString() === new Date().toDateString()}
+                    isHighlighted={highlightId === appointment.id}
+                  />
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 mt-8">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    <ChevronLeft className="w-6 h-6 text-gray-600" />
+                  </button>
+                  <span className="text-gray-600 font-medium">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    <ChevronRight className="w-6 h-6 text-gray-600" />
+                  </button>
                 </div>
               )}
-            </div>
-            {todayAppointments.length === 0 ? (
-              <p className="text-gray-500">No hay citas para hoy</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {todayAppointments.map((appointment) => (
-                  <AppointmentCard
-                    key={appointment.id}
-                    appointment={appointment}
-                    onStatusChange={updateStatus}
-                    onSendWhatsApp={sendWhatsApp}
-                    getStatusColor={getStatusColor}
-                    getStatusLabel={getStatusLabel}
-                    isToday={true}
-                    isHighlighted={highlightId === appointment.id}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+            </>
+          )}
+        </div>
+      )}
 
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Próximas Citas</h2>
-            {upcomingAppointments.length === 0 ? (
-              <p className="text-gray-500">No hay citas próximas</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {upcomingAppointments.map((appointment) => (
-                  <AppointmentCard
-                    key={appointment.id}
-                    appointment={appointment}
-                    onStatusChange={updateStatus}
-                    onSendWhatsApp={sendWhatsApp}
-                    getStatusColor={getStatusColor}
-                    getStatusLabel={getStatusLabel}
-                    isToday={false}
-                    isHighlighted={highlightId === appointment.id}
-                  />
-                ))}
-              </div>
-            )}
+      {selectedAppointment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 relative">
+            <button
+              onClick={() => setSelectedAppointment(null)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+            >
+              <XCircle className="w-6 h-6" />
+            </button>
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Detalles de la Cita</h2>
+            <AppointmentCard
+              appointment={selectedAppointment}
+              onStatusChange={(id: string, status: string) => {
+                updateStatus(id, status);
+                setSelectedAppointment(null);
+              }}
+              onSendWhatsApp={sendWhatsApp}
+              getStatusColor={getStatusColor}
+              getStatusLabel={getStatusLabel}
+              isToday={false}
+              isHighlighted={false}
+            />
           </div>
         </div>
       )}
