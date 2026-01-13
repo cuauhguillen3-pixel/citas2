@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogIn } from 'lucide-react';
+import { LogIn, ArrowLeft } from 'lucide-react';
 
 interface LoginProps {
   onToggle: () => void;
+  onBack: () => void;
 }
 
-export default function Login({ onToggle }: LoginProps) {
+export default function Login({ onToggle, onBack }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -29,7 +30,15 @@ export default function Login({ onToggle }: LoginProps) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-pink-100 py-12 px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 relative">
+        <button
+          onClick={onBack}
+          className="absolute top-4 left-4 p-2 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all duration-200"
+          title="Volver al inicio"
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </button>
+
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 bg-gradient-to-br from-rose-400 to-pink-500 rounded-full flex items-center justify-center mb-4">
             <LogIn className="w-8 h-8 text-white" />

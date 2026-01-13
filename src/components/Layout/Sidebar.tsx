@@ -93,7 +93,14 @@ export default function Sidebar({ currentView, onViewChange, isOpen, onClose }: 
 
         <div className="p-4 border-t border-rose-500">
           <button
-            onClick={() => signOut()}
+            type="button"
+            onClick={async () => {
+              try {
+                await signOut();
+              } catch (error) {
+                console.error('Error al cerrar sesión:', error);
+              }
+            }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition"
           >
             <LogOut className="w-5 h-5" />

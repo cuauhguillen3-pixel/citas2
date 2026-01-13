@@ -113,13 +113,15 @@ export default function Appointments({ highlightId }: AppointmentsProps) {
 
   useEffect(() => {
     loadData();
+  }, []);
 
+  useEffect(() => {
     const interval = setInterval(() => {
       checkUpcomingAppointments();
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [appointments]);
+  }, [appointments, permission]);
 
   const checkUpcomingAppointments = () => {
     const now = new Date();

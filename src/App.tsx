@@ -3,12 +3,14 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import Dashboard from './components/Dashboard/Dashboard';
+import LandingPage from './components/Landing/LandingPage';
 import { useNotifications } from './hooks/useNotifications';
 import { Bell, BellOff } from 'lucide-react';
 
 function AppContent() {
   const { user, loading } = useAuth();
   const [showLogin, setShowLogin] = useState(true);
+  const [showLanding, setShowLanding] = useState(true);
   const { permission, requestPermission, sendNotification, isSupported } = useNotifications();
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
 
@@ -17,6 +19,14 @@ function AppContent() {
       setShowNotificationPrompt(true);
     }
   }, [user, isSupported, permission]);
+
+  // Reset to landing page when user logs out
+  useEffect(() => {
+    if (!user && !loading) {
+      setShowLanding(true);
+      setShowLogin(true);
+    }
+  }, [user, loading]);
 
   const handleEnableNotifications = async () => {
     const result = await requestPermission();
@@ -37,10 +47,31 @@ function AppContent() {
   }
 
   if (!user) {
+    if (showLanding) {
+      return (
+        <LandingPage 
+          onLogin={() => {
+            setShowLanding(false);
+            setShowLogin(true);
+          }}
+          onRegister={() => {
+            setShowLanding(false);
+            setShowLogin(false);
+          }}
+        />
+      );
+    }
+    
     return showLogin ? (
-      <Login onToggle={() => setShowLogin(false)} />
+      <Login 
+        onToggle={() => setShowLogin(false)} 
+        onBack={() => setShowLanding(true)}
+      />
     ) : (
-      <Register onToggle={() => setShowLogin(true)} />
+      <Register 
+        onToggle={() => setShowLogin(true)} 
+        onBack={() => setShowLanding(true)}
+      />
     );
   }
 
