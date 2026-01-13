@@ -154,8 +154,9 @@ export default function Appointments({ highlightId }: AppointmentsProps) {
         supabase
           .from('appointments')
           .select('*, clients(full_name, phone), services(name, price, duration_minutes)')
+          .eq('created_by', user?.id)
           .order('appointment_date', { ascending: true }),
-        supabase.from('clients').select('*').order('full_name'),
+        supabase.from('clients').select('*').eq('created_by', user?.id).order('full_name'),
         supabase.from('services').select('*').eq('active', true).order('name'),
       ]);
 

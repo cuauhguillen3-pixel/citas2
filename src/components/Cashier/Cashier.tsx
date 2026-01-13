@@ -60,19 +60,22 @@ export default function Cashier() {
         supabase
           .from('transactions')
           .select('*, clients(full_name)')
+          .eq('created_by', user?.id)
           .order('created_at', { ascending: false })
           .limit(50),
-        supabase.from('clients').select('*').order('full_name'),
+        supabase.from('clients').select('*').eq('created_by', user?.id).order('full_name'),
         supabase.from('services').select('*').eq('active', true).order('name'),
         supabase
           .from('cash_register_shifts')
           .select('*')
           .eq('status', 'open')
+          .eq('opened_by', user?.id)
           .maybeSingle(),
         supabase
           .from('cash_register_shifts')
           .select('*')
           .eq('status', 'closed')
+          .eq('opened_by', user?.id)
           .order('closed_at', { ascending: false })
           .limit(10),
       ]);

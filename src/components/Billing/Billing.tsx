@@ -69,6 +69,7 @@ export default function Billing() {
     const { data } = await supabase
       .from('billing_history')
       .select('*')
+      .eq('user_id', user?.id)
       .order('created_at', { ascending: false });
     if (data) setHistory(data);
   };

@@ -40,6 +40,7 @@ export default function Clients({ highlightId }: ClientsProps) {
       const { data, error } = await supabase
         .from('clients')
         .select('*')
+        .eq('created_by', user?.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
